@@ -1,4 +1,6 @@
 from pathlib import Path
+from tkinter import N
+from tkinter.messagebox import NO
 import numpy
 import moderngl
 import moderngl_window
@@ -14,7 +16,12 @@ class Boids(moderngl_window.WindowConfig):
     boids_vao = []
     boids_buffer = []
     id = 0
-    boid_co_coef = 3
+    boid_co_coef = 16
+    mouse_key = None
+    mouse_press_poz = None
+    bombs = numpy.zeros(300, dtype=float)
+    bombs = []
+
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -25,10 +32,13 @@ class Boids(moderngl_window.WindowConfig):
         self.ctx.enable_only(moderngl.PROGRAM_POINT_SIZE | moderngl.BLEND)
 
         self.boids_render_program = self.load_program('boids_render_short.glsl')
+        self.bombs_render_program = self.load_program('bombs_render.glsl')
         self.boids_transform_program = self.load_program('boids_transform.glsl')
         self.boids_transform_program['num_boids'].value = NUM_BOIDS
         self.boids_transform_program['tex_width'].value = MAX_TEX_WIDTH
         self.boids_transform_program['boid_co_coef'].value = self.boid_co_coef
+        self.bomb_vao = moderngl_window.opengl.vao.VAO(name='bomb', mode=moderngl.POINTS)
+        self.bomb_vao.buffer(self.ctx.buffer(numpy.zeros(1)), '2f', ['in_position'])
 
         self.reset_scene()
         self.resize(0, 0)
@@ -43,10 +53,22 @@ class Boids(moderngl_window.WindowConfig):
             self.boids_vao[-1].buffer(self.boids_buffer[-1], '2f 2f 2f', ['in_position', 'in_velocity', 'in_speed'])
 
     def render(self, time, frame_time):
+        if self.bombs and self.bombs[0] == 0:
+            self.bombs.pop(0)
+            self.bombs_render_program['bomb_active'].value = 0
+            self.boids_transform_program['bomb_active'].value = 0
+        elif self.bombs and self.bombs[0][0] < self.timer.time:
+            bomb_t, mouse_coord = self.bombs[0]
+            self.boids_transform_program['bomb_poz'].write(mouse_coord)
+            self.boids_transform_program['bomb_active'].value = 1
+            self.bombs_render_program['bomb_active'].value = 1
+            self.bombs[0] = 0
+        
         self.boids_transform_program['timedelta'].value = frame_time  # max(frame_time, 1.0 / 60.0)
         self.boids_vao[self.id].transform(self.boids_transform_program, self.boids_buffer[1 - self.id])
         self.id = 1 - self.id
         self.boids_vao[self.id].render(self.boids_render_program)
+        self.bomb_vao.render(self.bombs_render_program, vertices=1)
         self.boids_texture.write(self.boids_buffer[self.id].read())
 
     def mouse_drag_event(self, x: int, y: int, dx: int, dy: int):
@@ -55,9 +77,23 @@ class Boids(moderngl_window.WindowConfig):
         self.wnd.title = f"Boids. C1 = {self.boid_co_coef:.3f}"
 
     def mouse_position_event(self, x: int, y: int, dx: int, dy: int):
-        mouse_coord = [x - self.wnd.width / 2, self.wnd.height / 2 - y]
+        mouse_coord = (x - self.wnd.width / 2, self.wnd.height / 2 - y)
         poz_data = numpy.array(mouse_coord, dtype='f4') / min(self.wnd.size) * 2
-        self.boids_render_program['mouse_poz'].write(poz_data.tobytes())
+        self.boids_render_program['mouse_poz'].write(poz_data)
+        
+    def mouse_press_event(self, x: int, y: int, button: int):
+        if button == 1:
+            self.mouse_key = 1
+            self.mouse_press_poz = x, y
+    
+    def mouse_release_event(self, x: int, y: int, button: int):
+        if self.mouse_key == 1:
+            if abs(self.mouse_press_poz[0] - x) < 10 and abs(self.mouse_press_poz[1] - y) < 10:
+                mouse_coord = (x - self.wnd.width / 2, self.wnd.height / 2 - y)
+                poz_data = numpy.array(mouse_coord, dtype='f4') / min(self.wnd.size) * 2
+                self.bombs.append((self.timer.time + 1, poz_data))
+                self.bombs_render_program['bomb_poz'].write(poz_data)
+                self.bombs_render_program['bomb_active'].value = 1
 
     def key_event(self, key, action, modifiers):
         if key == self.wnd.keys.R and action == self.wnd.keys.ACTION_RELEASE:
@@ -67,6 +103,7 @@ class Boids(moderngl_window.WindowConfig):
     def resize(self, width: int, height: int):
         screen_scale = min(self.wnd.size) / numpy.array(self.wnd.size, dtype='f4')
         self.boids_render_program['screen_scale'].write(screen_scale)
+        self.bombs_render_program['screen_scale'].write(screen_scale)
 
 
 if __name__ == '__main__':
