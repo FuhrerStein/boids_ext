@@ -46,14 +46,11 @@ void main() {
         read_boid(tmp_pos, tmp_vel, i);
         dist = distance(in_position, tmp_pos);
         gravity = 1 - smoothstep(0, 3, dist);
-        boid_co += tmp_pos * gravity * boid_co_coef;
+        boid_co += tmp_pos * gravity;
         sum_veight += gravity;
     }
-    boid_co /= sum_veight;
-    boid_vel = in_position - boid_co;
-    float poz_corr_x = smoothstep(0, 1, -in_position.x - .8) - smoothstep(0, 1, in_position.x - .8);
-    float poz_corr_y = smoothstep(0, 1, -in_position.y - .8) - smoothstep(0, 1, in_position.y - .8);
-    boid_vel += vec2(poz_corr_x, poz_corr_y) * 2;
+    boid_vel = in_position - boid_co * boid_co_coef / sum_veight;
+    boid_vel += smoothstep(0, 1, -in_position * screen_scale - .5 ) - smoothstep(0, 1, in_position * screen_scale - .5);
 
     float speed = length(boid_vel);
     boid_vel *= mix(1, MAX_SPEED / speed, 1 - MAX_SPEED / speed / 5);

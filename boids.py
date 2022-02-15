@@ -6,8 +6,8 @@ import moderngl
 import moderngl_window
 
 rng = numpy.random.default_rng()
-MAX_TEX_WIDTH = 3350
-NUM_BOIDS = 3350
+MAX_TEX_WIDTH = 2350
+NUM_BOIDS = 2350
 
 
 class Boids(moderngl_window.WindowConfig):
@@ -61,8 +61,10 @@ class Boids(moderngl_window.WindowConfig):
             bomb_t, mouse_coord = self.bombs[0]
             self.boids_transform_program['bomb_poz'].write(mouse_coord)
             self.boids_transform_program['bomb_active'].value = 1
-            self.bombs_render_program['bomb_active'].value = 1
+            self.bombs_render_program['bomb_active'].value = 2
             self.bombs[0] = 0
+        elif  self.bombs and self.bombs[0][0] > self.timer.time:
+            self.bombs_render_program['bomb_active'].value = self.bombs[0][0] - self.timer.time + .55
         
         self.boids_transform_program['timedelta'].value = frame_time  # max(frame_time, 1.0 / 60.0)
         self.boids_vao[self.id].transform(self.boids_transform_program, self.boids_buffer[1 - self.id])
@@ -104,6 +106,7 @@ class Boids(moderngl_window.WindowConfig):
         screen_scale = min(self.wnd.size) / numpy.array(self.wnd.size, dtype='f4')
         self.boids_render_program['screen_scale'].write(screen_scale)
         self.bombs_render_program['screen_scale'].write(screen_scale)
+        self.boids_transform_program['screen_scale'].write(screen_scale)
 
 
 if __name__ == '__main__':

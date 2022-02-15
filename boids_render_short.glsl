@@ -14,7 +14,7 @@ void main() {
     gl_PointSize = 55.0;
     vert_color = mod(vec4(7, 13, 23, 1) * gl_VertexID, 180) / 225 + .2;
     out_velocity = vec2(-1, 0) * in_speed * length(in_speed);
-    gl_PointSize += 200 * smoothstep(0, 1, 1 - length(mouse_poz - in_position) * 2);
+    gl_PointSize -= 30 * smoothstep(0, 1, 1 - length(mouse_poz - in_position) * 2);
 }
 
 #elif defined FRAGMENT_SHADER
