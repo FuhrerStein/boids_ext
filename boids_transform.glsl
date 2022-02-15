@@ -3,11 +3,9 @@
 #if defined VERTEX_SHADER
 
 in vec2 in_position;
-in vec2 in_velocity;
 in vec2 in_speed;
 
 out vec2 out_position;
-out vec2 out_velocity;
 out vec2 out_speed;
 
 uniform sampler2D data;
@@ -40,28 +38,29 @@ void main() {
     float dist;
 
     for (int i = 0; i < num_boids; i++) {
-        if (i == gl_VertexID) {
-            continue;
-        }
+        if (i == gl_VertexID) {continue;}
         read_boid(tmp_pos, tmp_vel, i);
         dist = distance(in_position, tmp_pos);
-        gravity = 1 - smoothstep(0, 3, dist);
-        boid_co += tmp_pos * gravity;
+        // gravity = 1 - smoothstep(0, 3, dist * dist) - smoothstep(0, 1, 1 - dist * dist * dist);        
+        gravity = 1 / dist * dist - 1 / dist * dist * dist;        
+        // gravity = 1;
+        // boid_co += (tmp_pos - in_position) * gravity + tmp_vel * gravity / 2000000;
+        boid_co += (tmp_pos - in_position) * gravity;
         sum_veight += gravity;
     }
-    boid_vel = in_position - boid_co * boid_co_coef / sum_veight;
-    boid_vel += smoothstep(0, 1, -in_position * screen_scale - .5 ) - smoothstep(0, 1, in_position * screen_scale - .5);
+    boid_vel = in_speed + boid_co * boid_co_coef / sum_veight / 10000;
+    // boid_vel += smoothstep(0, 1.5, -in_position * screen_scale - .4) * 20;
+    boid_vel += smoothstep(0, 1.5, -in_position * screen_scale - .4) * .20;
+    boid_vel -= smoothstep(0, 1.5, in_position * screen_scale - .4) * .20;
 
     float speed = length(boid_vel);
-    boid_vel *= mix(1, MAX_SPEED / speed, 1 - MAX_SPEED / speed / 5);
+    // boid_vel *= mix(1, MAX_SPEED / speed, 1 - MAX_SPEED / speed / 15);
 
     dist = distance(in_position, bomb_poz);
     gravity = 1 - smoothstep(0, 1, dist);
-    boid_vel += (in_position - bomb_poz) * gravity * 50 * bomb_active;
+    boid_vel += (in_position - bomb_poz) * gravity * gravity * 150 * bomb_active;
     
     out_position = in_position + boid_vel * timedelta;
-    // out_velocity = in_velocity + boid_vel;
-    out_velocity = vec2(0, 0);
     out_speed = mix(boid_vel, in_speed, .9);
 }
 

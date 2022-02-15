@@ -6,27 +6,24 @@ import moderngl
 import moderngl_window
 
 rng = numpy.random.default_rng()
-MAX_TEX_WIDTH = 2350
-NUM_BOIDS = 2350
+MAX_TEX_WIDTH = 2000
+NUM_BOIDS = 2000
 
 
 class Boids(moderngl_window.WindowConfig):
     title = "Boids"
     resource_dir = (Path(__file__) / '..').absolute()
-    boids_vao = []
-    boids_buffer = []
     id = 0
     boid_co_coef = 16
     mouse_key = None
     mouse_press_poz = None
-    bombs = numpy.zeros(300, dtype=float)
     bombs = []
 
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.boids_texture = self.ctx.texture((NUM_BOIDS, 3), components=2, dtype='f4')
+        self.boids_texture = self.ctx.texture((NUM_BOIDS, 1), components=4, dtype='f4')
         self.boids_texture.use(location=0)
 
         self.ctx.enable_only(moderngl.PROGRAM_POINT_SIZE | moderngl.BLEND)
@@ -44,13 +41,11 @@ class Boids(moderngl_window.WindowConfig):
         self.resize(0, 0)
 
     def reset_scene(self):
-        data = rng.normal(0, 3, NUM_BOIDS * 6)
-        self.boids_vao.clear()
-        self.boids_buffer.clear()
-        for _ in range(2):
-            self.boids_vao.append(moderngl_window.opengl.vao.VAO(name='boids_v', mode=moderngl.POINTS))
-            self.boids_buffer.append(self.ctx.buffer(data.astype('f4').tobytes()))
-            self.boids_vao[-1].buffer(self.boids_buffer[-1], '2f 2f 2f', ['in_position', 'in_velocity', 'in_speed'])
+        data = rng.normal(0, .3, NUM_BOIDS * 4).astype('f4')
+        self.boids_vao = moderngl_window.opengl.vao.VAO(name='boids_v', mode=moderngl.POINTS)
+        self.boids_buffer = self.ctx.buffer(data)
+        # self.boids_vao.buffer(self.boids_buffer, '2f 2f 2f', ['in_position', 'in_velocity', 'in_speed'])
+        self.boids_vao.buffer(self.boids_buffer, '2f 2f', ['in_position', 'in_speed'])
 
     def render(self, time, frame_time):
         if self.bombs and self.bombs[0] == 0:
@@ -67,11 +62,10 @@ class Boids(moderngl_window.WindowConfig):
             self.bombs_render_program['bomb_active'].value = self.bombs[0][0] - self.timer.time + .55
         
         self.boids_transform_program['timedelta'].value = frame_time  # max(frame_time, 1.0 / 60.0)
-        self.boids_vao[self.id].transform(self.boids_transform_program, self.boids_buffer[1 - self.id])
-        self.id = 1 - self.id
-        self.boids_vao[self.id].render(self.boids_render_program)
+        self.boids_vao.transform(self.boids_transform_program, self.boids_buffer)
+        self.boids_vao.render(self.boids_render_program)
         self.bomb_vao.render(self.bombs_render_program, vertices=1)
-        self.boids_texture.write(self.boids_buffer[self.id].read())
+        self.boids_texture.write(self.boids_buffer)
 
     def mouse_drag_event(self, x: int, y: int, dx: int, dy: int):
         self.boid_co_coef *= 1 + dx / 1000
